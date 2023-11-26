@@ -41,12 +41,14 @@ func Foo() {
 It also makes working with transactions easier and tx and hdb can be used interchangeably. This promotes code reuse.
 
 ```go
-func Foo(db *hyperbun.DB) {
+func Foo(db hyperbun.DB) {
   hyperbun.DeleteByID(db, "users", id)
 }
 
 func main() {
-  hyperbun.RunInTx(hdb, func(tx *hyperbun.Tx) error {
+	hdb := hyperbun.NewContext(c.Request.Context(), db)
+
+  hyperbun.RunInTx(hdb, func(tx hyperbun.TxContext) error {
     Foo(tx)
     return nil
   })
@@ -62,4 +64,3 @@ func main() {
 ## Credits
 
 - [Bun](https://github.com/uptrace/bun)
-- 
