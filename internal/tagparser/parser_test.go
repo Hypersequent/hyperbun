@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hypersequent/tms/packages/hyperbun/internal/tagparser"
+	"github.com/hypersequent/hyperbun/internal/tagparser"
 )
 
 var tagTests = []struct {

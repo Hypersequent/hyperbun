@@ -7,9 +7,10 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/hypersequent/tms/packages/hyperbun/internal"
-	"github.com/hypersequent/tms/packages/hyperbun/internal/tagparser"
 	"github.com/uptrace/bun/schema"
+
+	"github.com/hypersequent/hyperbun/internal"
+	"github.com/hypersequent/hyperbun/internal/tagparser"
 )
 
 var (

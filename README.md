@@ -1,6 +1,6 @@
 # Hyperbun
 
-Hyperr is a utility library built on top of [Bun](https://github.com/uptrace/bun) to reduce boilerplate code.
+Hyperbun is a utility library built on top of [Bun](https://github.com/uptrace/bun) to reduce boilerplate code.
 
 Queries like this in bun:
 
