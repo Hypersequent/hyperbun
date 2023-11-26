@@ -1,6 +1,6 @@
 module github.com/hypersequent/hyperbun
 
-go 1.21.4
+go 1.21
 
 require (
 	github.com/hypersequent/hyperr v0.0.0-20231126052248-ed921b438e92
