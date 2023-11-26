@@ -46,7 +46,7 @@ func Foo(db hyperbun.DB) {
 }
 
 func main() {
-	hdb := hyperbun.NewContext(c.Request.Context(), db)
+  hdb := hyperbun.NewContext(c.Request.Context(), db)
 
   hyperbun.RunInTx(hdb, func(tx hyperbun.TxContext) error {
     Foo(tx)
