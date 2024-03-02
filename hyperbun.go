@@ -21,6 +21,7 @@ type DB interface {
 	NewDelete() *bun.DeleteQuery
 	NewMerge() *bun.MergeQuery
 	NewRaw(string, ...interface{}) *bun.RawQuery
+	NewValues(model interface{}) *bun.ValuesQuery
 	RunInTx(fn func(tx TxContext) error) error
 }
 
@@ -64,6 +65,10 @@ func (m Context) NewMerge() *bun.MergeQuery {
 
 func (m Context) NewRaw(query string, args ...interface{}) *bun.RawQuery {
 	return m.Bun.NewRaw(query, args...)
+}
+
+func (m Context) NewValues(model interface{}) *bun.ValuesQuery {
+	return m.Bun.NewValues(model)
 }
 
 func (m Context) RunInTx(fn func(tx TxContext) error) error {
@@ -114,6 +119,10 @@ func (m TxContext) NewMerge() *bun.MergeQuery {
 
 func (m TxContext) NewRaw(query string, args ...interface{}) *bun.RawQuery {
 	return m.Bun.NewRaw(query, args...)
+}
+
+func (m TxContext) NewValues(model interface{}) *bun.ValuesQuery {
+	return m.Bun.NewValues(model)
 }
 
 func (m TxContext) RunInTx(fn func(tx TxContext) error) error {
