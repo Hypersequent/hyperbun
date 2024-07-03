@@ -433,6 +433,10 @@ func annotate(err error, op string, kvs ...interface{}) error {
 func hyperbunTableForType[T any]() string {
 	var t T
 	typ := reflect.TypeOf(t)
+	if typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
 		val, ok := f.Tag.Lookup("bun")
