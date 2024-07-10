@@ -16,10 +16,10 @@ type testStruct struct {
 
 func TestHyperbunTableForType(t *testing.T) {
 	assert.Equal(t, "test_struct", hyperbunTableForType[testStruct]())
-}
-
-func TestHyperbunTableForPtrType(t *testing.T) {
 	assert.Equal(t, "test_struct", hyperbunTableForType[*testStruct]())
+	assert.Equal(t, "test_struct", hyperbunTableForType[[]testStruct]())
+	assert.Equal(t, "test_struct", hyperbunTableForType[[]*testStruct]())
+	assert.Equal(t, "test_struct", hyperbunTableForType[*[]testStruct]())
 }
 
 func TestAnnotateEven(t *testing.T) {

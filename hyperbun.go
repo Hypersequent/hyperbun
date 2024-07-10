@@ -433,8 +433,12 @@ func annotate(err error, op string, kvs ...interface{}) error {
 func hyperbunTableForType[T any]() string {
 	var t T
 	typ := reflect.TypeOf(t)
-	if typ.Kind() == reflect.Pointer {
+	kind := typ.Kind()
+
+	// This covers the case like *U, []U, *[]U, []*U etc
+	for kind == reflect.Pointer || kind == reflect.Slice {
 		typ = typ.Elem()
+		kind = typ.Kind()
 	}
 
 	for i := 0; i < typ.NumField(); i++ {
