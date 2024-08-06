@@ -23,6 +23,7 @@ type DB interface {
 	NewRaw(string, ...interface{}) *bun.RawQuery
 	NewValues(model interface{}) *bun.ValuesQuery
 	RunInTx(fn func(tx TxContext) error) error
+	ForceRunInTx(fn func(tx TxContext) error) error
 }
 
 type Context struct {
@@ -77,6 +78,10 @@ func (m Context) RunInTx(fn func(tx TxContext) error) error {
 	})
 }
 
+func (m Context) ForceRunInTx(fn func(tx TxContext) error) error {
+	return m.RunInTx(fn)
+}
+
 // ---------------------------------------------------------------
 
 type TxContext struct {
@@ -127,6 +132,12 @@ func (m TxContext) NewValues(model interface{}) *bun.ValuesQuery {
 
 func (m TxContext) RunInTx(fn func(tx TxContext) error) error {
 	return fn(m)
+}
+
+func (m TxContext) ForceRunInTx(fn func(tx TxContext) error) error {
+	return m.Bun.RunInTx(m.ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+		return fn(NewTxContext(ctx, tx))
+	})
 }
 
 func ByID[T any, ID string | int](m DB, id ID) (*T, error) {
@@ -374,6 +385,13 @@ func DeleteBySQL(m DB, table string, query string, args ...interface{}) error {
 func RunInTx(m DB, fn func(tx TxContext) error) error {
 	if err := m.RunInTx(fn); err != nil {
 		return fmt.Errorf("RunInTx: %w", err)
+	}
+	return nil
+}
+
+func ForceRunInTx(m DB, fn func(tx TxContext) error) error {
+	if err := m.ForceRunInTx(fn); err != nil {
+		return fmt.Errorf("ForceRunInTx: %w", err)
 	}
 	return nil
 }
