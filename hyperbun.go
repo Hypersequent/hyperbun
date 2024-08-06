@@ -126,9 +126,7 @@ func (m TxContext) NewValues(model interface{}) *bun.ValuesQuery {
 }
 
 func (m TxContext) RunInTx(fn func(tx TxContext) error) error {
-	return m.Bun.RunInTx(m.ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		return fn(NewTxContext(ctx, tx))
-	})
+	return fn(m)
 }
 
 func ByID[T any, ID string | int](m DB, id ID) (*T, error) {
