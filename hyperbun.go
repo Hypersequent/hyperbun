@@ -3,14 +3,13 @@ package hyperbun
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"reflect"
 	"strings"
 
 	"github.com/uptrace/bun"
-
-	"github.com/hypersequent/hyperr"
 )
 
 type DB interface {
@@ -147,7 +146,7 @@ func ByID[T any, ID string | int](m DB, id ID) (*T, error) {
 		Where("id = ?", id).
 		Limit(1).
 		Scan(m.Context()); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, annotate(err, "ByID", "table", hyperbunTableForType[T](), "id", id)
@@ -165,7 +164,7 @@ func StructByID[T any, ID string | int](m DB, table string, id ID) (*T, error) {
 		Where("id = ?", id).
 		Limit(1).
 		Scan(m.Context(), &row); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, annotate(err, "StructByID", "table", table, "id", id)
@@ -182,7 +181,7 @@ func TypeByID[T any, ID string | int](m DB, table string, column string, id ID) 
 		Where("id = ?", id).
 		Limit(1).
 		Scan(m.Context(), &value); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, annotate(err, "TypeByID", "table", table, "column", column, "id", id)
@@ -198,7 +197,7 @@ func BySQL[T any](m DB, query string, args ...interface{}) (*T, error) {
 		Where(query, args...).
 		Limit(1).
 		Scan(m.Context()); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, annotate(err, "BySQL", "table", hyperbunTableForType[T]())
@@ -216,7 +215,7 @@ func StructBySQL[T any](m DB, table string, query string, args ...interface{}) (
 		Where(query, args...).
 		Limit(1).
 		Scan(m.Context(), &row); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, annotate(err, "StructBySQL", "table", table)
@@ -233,7 +232,7 @@ func TypeBySQL[T any](m DB, table string, column string, query string, args ...i
 		Where(query, args...).
 		Limit(1).
 		Scan(m.Context(), &value); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, annotate(err, "TypeBySQL", "table", table, "column", column)
@@ -248,7 +247,7 @@ func Many[T any](m DB, query string, args ...interface{}) ([]T, error) {
 		Model(&rows).
 		Where(query, args...).
 		Scan(m.Context()); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, annotate(err, "Many", "table", hyperbunTableForType[T]())
@@ -384,14 +383,14 @@ func DeleteBySQL(m DB, table string, query string, args ...interface{}) error {
 
 func RunInTx(m DB, fn func(tx TxContext) error) error {
 	if err := m.RunInTx(fn); err != nil {
-		return fmt.Errorf("RunInTx: %w", err)
+		return annotate(err, "RunInTx")
 	}
 	return nil
 }
 
 func ForceRunInTx(m DB, fn func(tx TxContext) error) error {
 	if err := m.ForceRunInTx(fn); err != nil {
-		return fmt.Errorf("ForceRunInTx: %w", err)
+		return annotate(err, "ForceRunInTx")
 	}
 	return nil
 }
@@ -399,51 +398,57 @@ func ForceRunInTx(m DB, fn func(tx TxContext) error) error {
 func RunInLockedTx(m DB, id string, fn func(tx TxContext) error) error {
 	return RunInTx(m, func(tx TxContext) error {
 		if err := advisoryLock(m, id); err != nil {
-			return hyperr.Wrap(err)
+			return annotate(err, "RunInLockedTx")
 		}
 
-		return fn(tx)
+		if err := fn(tx); err != nil {
+			return annotate(err, "RunInLockedTx", "id", id)
+		}
+
+		return nil
 	})
 }
 
-func advisoryLock(m DB, name string) error {
+func advisoryLock(m DB, id string) error {
 	h := fnv.New64()
-	h.Write([]byte(name))
+	h.Write([]byte(id))
 	s := h.Sum64()
 	if _, err := m.NewRaw("SELECT pg_advisory_xact_lock(?)", int64(s)).
 		Exec(m.Context()); err != nil {
-		return hyperr.Wrap(err)
+		return annotate(err, "advisoryLock", "id", id)
 	}
 
 	return nil
 }
 
 func annotate(err error, op string, kvs ...interface{}) error {
-	pairs := make([][2]string, len(kvs)/2)
-	numPairs := len(kvs) / 2
-	odd := len(kvs)%2 != 0
-	for i := 0; i < numPairs; i++ {
-		pairs[i] = [2]string{
-			fmt.Sprint(kvs[i*2]),
-			fmt.Sprint(kvs[i*2+1]),
-		}
-	}
-	if odd {
-		pairs = append(pairs, [2]string{
-			fmt.Sprint(kvs[len(kvs)-1]),
-			"<missing value>",
-		})
-	}
-	joined := make([]string, 0, len(pairs))
-	for _, pair := range pairs {
-		joined = append(joined, fmt.Sprint(pair[0], "='", pair[1], "'"))
-	}
-	joinedStr := strings.Join(joined, " ")
-	if joinedStr != "" {
-		joinedStr = " " + joinedStr
+	if len(kvs) == 0 {
+		return fmt.Errorf("performing %s: %w", op, err)
 	}
 
-	return fmt.Errorf("performing %s%s: %w", op, joinedStr, err)
+	// Use strings.Builder for efficient string concatenation.
+	// Pre-allocate reasonable capacity to reduce reallocations.
+	var builder strings.Builder
+	builder.Grow(len(op) + len(kvs)*20)
+
+	builder.WriteString(op)
+
+	numPairs := len(kvs) / 2
+	for i := 0; i < numPairs; i++ {
+		builder.WriteByte(' ')
+		builder.WriteString(fmt.Sprint(kvs[i*2]))
+		builder.WriteString("='")
+		builder.WriteString(fmt.Sprint(kvs[i*2+1]))
+		builder.WriteByte('\'')
+	}
+
+	if len(kvs)%2 != 0 {
+		builder.WriteByte(' ')
+		builder.WriteString(fmt.Sprint(kvs[len(kvs)-1]))
+		builder.WriteString("='<missing value>'")
+	}
+
+	return fmt.Errorf("performing %s: %w", builder.String(), err)
 }
 
 func hyperbunTableForType[T any]() string {
