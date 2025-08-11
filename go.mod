@@ -1,9 +1,8 @@
 module github.com/hypersequent/hyperbun
 
-go 1.21
+go 1.24
 
 require (
-	github.com/hypersequent/hyperr v0.0.0-20231126052248-ed921b438e92
 	github.com/stretchr/testify v1.8.4
 	github.com/uptrace/bun v1.1.16
 )
