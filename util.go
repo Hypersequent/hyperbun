@@ -14,18 +14,18 @@ import (
 )
 
 var (
-	baseModelType = reflect.TypeOf((*schema.BaseModel)(nil)).Elem()
+	baseModelType = reflect.TypeFor[schema.BaseModel]()
 	columnsCache  = sync.Map{}
 )
 
 func getColumns(typ reflect.Type) []string {
 	if columns, ok := columnsCache.Load(typ); ok {
-		return columns.([]string)
+		return columns.([]string) //nolint:errcheck // we are storing string slice in the cache
 	}
 
 	var columns []string
 
-	for i := 0; i < typ.NumField(); i++ {
+	for i := range typ.NumField() {
 		f := typ.Field(i)
 		unexported := f.PkgPath != ""
 
