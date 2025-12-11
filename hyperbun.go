@@ -267,7 +267,8 @@ func Exists[ID string | int](m DB, table string, id ID) (bool, error) {
 
 func ExistsBySQL(m DB, table string, query string, args ...interface{}) (bool, error) {
 	var exists bool
-	if err := m.NewRaw("SELECT EXISTS(SELECT 1 from "+table+" WHERE "+query+")", args...).
+	if err := m.NewRaw("SELECT EXISTS(SELECT 1 from ? WHERE "+query+")",
+		append([]interface{}{bun.Ident(table)}, args...)...).
 		Scan(m.Context(), &exists); err != nil {
 		return false, annotate(err, "ExistsBySQL", "table", table)
 	}
@@ -332,7 +333,7 @@ func UpdateSQLByID[ID string | int](m DB, table string, id ID, query string, arg
 	if err != nil {
 		return annotate(err, "UpdateSQLByID", "table", table, "id", id)
 	}
-	return err
+	return nil
 }
 
 // To upsert and check multiple constraints, see
@@ -356,7 +357,7 @@ func UpsertIgnore[T any](m DB, rows T) error {
 		return annotate(err, "UpsertIgnore", "table", hyperbunTableForType[T]())
 	}
 
-	return err
+	return nil
 }
 
 func DeleteByID[ID string | int](m DB, table string, id ID) error {
@@ -397,7 +398,7 @@ func ForceRunInTx(m DB, fn func(tx TxContext) error) error {
 
 func RunInLockedTx(m DB, id string, fn func(tx TxContext) error) error {
 	return RunInTx(m, func(tx TxContext) error {
-		if err := advisoryLock(m, id); err != nil {
+		if err := advisoryLock(tx, id); err != nil {
 			return annotate(err, "RunInLockedTx")
 		}
 
