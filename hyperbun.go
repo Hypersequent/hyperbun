@@ -19,8 +19,8 @@ type DB interface {
 	NewUpdate() *bun.UpdateQuery
 	NewDelete() *bun.DeleteQuery
 	NewMerge() *bun.MergeQuery
-	NewRaw(string, ...interface{}) *bun.RawQuery
-	NewValues(model interface{}) *bun.ValuesQuery
+	NewRaw(string, ...any) *bun.RawQuery
+	NewValues(model any) *bun.ValuesQuery
 	RunInTx(fn func(tx TxContext) error) error
 	ForceRunInTx(fn func(tx TxContext) error) error
 }
@@ -63,11 +63,11 @@ func (m Context) NewMerge() *bun.MergeQuery {
 	return m.Bun.NewMerge()
 }
 
-func (m Context) NewRaw(query string, args ...interface{}) *bun.RawQuery {
+func (m Context) NewRaw(query string, args ...any) *bun.RawQuery {
 	return m.Bun.NewRaw(query, args...)
 }
 
-func (m Context) NewValues(model interface{}) *bun.ValuesQuery {
+func (m Context) NewValues(model any) *bun.ValuesQuery {
 	return m.Bun.NewValues(model)
 }
 
@@ -121,11 +121,11 @@ func (m TxContext) NewMerge() *bun.MergeQuery {
 	return m.Bun.NewMerge()
 }
 
-func (m TxContext) NewRaw(query string, args ...interface{}) *bun.RawQuery {
+func (m TxContext) NewRaw(query string, args ...any) *bun.RawQuery {
 	return m.Bun.NewRaw(query, args...)
 }
 
-func (m TxContext) NewValues(model interface{}) *bun.ValuesQuery {
+func (m TxContext) NewValues(model any) *bun.ValuesQuery {
 	return m.Bun.NewValues(model)
 }
 
@@ -190,7 +190,7 @@ func TypeByID[T any, ID string | int](m DB, table string, column string, id ID) 
 	return &value, nil
 }
 
-func BySQL[T any](m DB, query string, args ...interface{}) (*T, error) {
+func BySQL[T any](m DB, query string, args ...any) (*T, error) {
 	var row T
 	if err := m.NewSelect().
 		Model(&row).
@@ -206,7 +206,7 @@ func BySQL[T any](m DB, query string, args ...interface{}) (*T, error) {
 	return &row, nil
 }
 
-func StructBySQL[T any](m DB, table string, query string, args ...interface{}) (*T, error) {
+func StructBySQL[T any](m DB, table string, query string, args ...any) (*T, error) {
 	var row T
 	columns := getColumns(reflect.TypeOf(row))
 	if err := m.NewSelect().
@@ -224,7 +224,7 @@ func StructBySQL[T any](m DB, table string, query string, args ...interface{}) (
 	return &row, nil
 }
 
-func TypeBySQL[T any](m DB, table string, column string, query string, args ...interface{}) (*T, error) {
+func TypeBySQL[T any](m DB, table string, column string, query string, args ...any) (*T, error) {
 	var value T
 	if err := m.NewSelect().
 		ColumnExpr(column).
@@ -241,7 +241,7 @@ func TypeBySQL[T any](m DB, table string, column string, query string, args ...i
 	return &value, nil
 }
 
-func Many[T any](m DB, query string, args ...interface{}) ([]T, error) {
+func Many[T any](m DB, query string, args ...any) ([]T, error) {
 	var rows []T
 	if err := m.NewSelect().
 		Model(&rows).
@@ -265,9 +265,10 @@ func Exists[ID string | int](m DB, table string, id ID) (bool, error) {
 	return c == 1, nil
 }
 
-func ExistsBySQL(m DB, table string, query string, args ...interface{}) (bool, error) {
+func ExistsBySQL(m DB, table string, query string, args ...any) (bool, error) {
 	var exists bool
-	if err := m.NewRaw("SELECT EXISTS(SELECT 1 from "+table+" WHERE "+query+")", args...).
+	if err := m.NewRaw("SELECT EXISTS(SELECT 1 from ? WHERE "+query+")",
+		append([]any{bun.Ident(table)}, args...)...).
 		Scan(m.Context(), &exists); err != nil {
 		return false, annotate(err, "ExistsBySQL", "table", table)
 	}
@@ -275,7 +276,7 @@ func ExistsBySQL(m DB, table string, query string, args ...interface{}) (bool, e
 	return exists, nil
 }
 
-func CountQuery(m DB, table string, query string, args ...interface{}) (int, error) {
+func CountQuery(m DB, table string, query string, args ...any) (int, error) {
 	count, err := m.NewSelect().
 		Table(table).
 		Where(query, args...).
@@ -323,7 +324,7 @@ func Update[T any](m DB, row *T, pk ...string) error {
 	return nil
 }
 
-func UpdateSQLByID[ID string | int](m DB, table string, id ID, query string, args ...interface{}) error {
+func UpdateSQLByID[ID string | int](m DB, table string, id ID, query string, args ...any) error {
 	_, err := m.NewUpdate().
 		Table(table).
 		Set(query, args...).
@@ -332,10 +333,10 @@ func UpdateSQLByID[ID string | int](m DB, table string, id ID, query string, arg
 	if err != nil {
 		return annotate(err, "UpdateSQLByID", "table", table, "id", id)
 	}
-	return err
+	return nil
 }
 
-// To upsert and check multiple constraints, see
+// Upsert inserts or updates rows based on conflict columns. To upsert and check multiple constraints, see
 // https://stackoverflow.com/questions/35888012/use-multiple-conflict-target-in-on-conflict-clause
 func Upsert[T any](m DB, rows T, conflictColumns string) error {
 	if _, err := m.NewInsert().
@@ -356,7 +357,7 @@ func UpsertIgnore[T any](m DB, rows T) error {
 		return annotate(err, "UpsertIgnore", "table", hyperbunTableForType[T]())
 	}
 
-	return err
+	return nil
 }
 
 func DeleteByID[ID string | int](m DB, table string, id ID) error {
@@ -370,7 +371,7 @@ func DeleteByID[ID string | int](m DB, table string, id ID) error {
 	return nil
 }
 
-func DeleteBySQL(m DB, table string, query string, args ...interface{}) error {
+func DeleteBySQL(m DB, table string, query string, args ...any) error {
 	if _, err := m.NewDelete().
 		Table(table).
 		Where(query, args...).
@@ -397,7 +398,7 @@ func ForceRunInTx(m DB, fn func(tx TxContext) error) error {
 
 func RunInLockedTx(m DB, id string, fn func(tx TxContext) error) error {
 	return RunInTx(m, func(tx TxContext) error {
-		if err := advisoryLock(m, id); err != nil {
+		if err := advisoryLock(tx, id); err != nil {
 			return annotate(err, "RunInLockedTx")
 		}
 
@@ -411,8 +412,12 @@ func RunInLockedTx(m DB, id string, fn func(tx TxContext) error) error {
 
 func advisoryLock(m DB, id string) error {
 	h := fnv.New64()
-	h.Write([]byte(id))
+	if _, err := h.Write([]byte(id)); err != nil {
+		return annotate(err, "advisoryLock", "id", id)
+	}
+
 	s := h.Sum64()
+	//nolint:gosec // PostgreSQL bigint is signed, and we need consistent hashing
 	if _, err := m.NewRaw("SELECT pg_advisory_xact_lock(?)", int64(s)).
 		Exec(m.Context()); err != nil {
 		return annotate(err, "advisoryLock", "id", id)
@@ -421,7 +426,7 @@ func advisoryLock(m DB, id string) error {
 	return nil
 }
 
-func annotate(err error, op string, kvs ...interface{}) error {
+func annotate(err error, op string, kvs ...any) error {
 	if len(kvs) == 0 {
 		return fmt.Errorf("performing %s: %w", op, err)
 	}
@@ -434,7 +439,7 @@ func annotate(err error, op string, kvs ...interface{}) error {
 	builder.WriteString(op)
 
 	numPairs := len(kvs) / 2
-	for i := 0; i < numPairs; i++ {
+	for i := range numPairs {
 		builder.WriteByte(' ')
 		builder.WriteString(fmt.Sprint(kvs[i*2]))
 		builder.WriteString("='")
@@ -462,13 +467,13 @@ func hyperbunTableForType[T any]() string {
 		kind = typ.Kind()
 	}
 
-	for i := 0; i < typ.NumField(); i++ {
+	for i := range typ.NumField() {
 		f := typ.Field(i)
 		val, ok := f.Tag.Lookup("bun")
 		if !ok {
 			continue
 		}
-		for _, ann := range strings.Split(val, ",") {
+		for ann := range strings.SplitSeq(val, ",") {
 			spl := strings.Split(ann, ":")
 			if len(spl) != 2 {
 				continue
