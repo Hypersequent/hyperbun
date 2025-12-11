@@ -16,5 +16,5 @@ type Entity struct {
 }
 
 func TestGetColumns(t *testing.T) {
-	assert.Equal(t, []string{"id", "name"}, getColumns(reflect.TypeOf(Entity{})))
+	assert.Equal(t, []string{"id", "name"}, getColumns(reflect.TypeFor[Entity]()))
 }

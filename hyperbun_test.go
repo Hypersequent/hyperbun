@@ -1,7 +1,7 @@
 package hyperbun
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,20 +25,20 @@ func TestHyperbunTableForType(t *testing.T) {
 func TestAnnotateEven(t *testing.T) {
 	assert.Equal(t,
 		"performing TestAnnotate hello='world' id='0': test_error",
-		annotate(fmt.Errorf("test_error"), "TestAnnotate", "hello", "world", "id", 0).Error(),
+		annotate(errors.New("test_error"), "TestAnnotate", "hello", "world", "id", 0).Error(),
 	)
 }
 
 func TestAnnotateOdd(t *testing.T) {
 	assert.Equal(t,
 		"performing TestAnnotate hello='world' id='0' odd='<missing value>': test_error",
-		annotate(fmt.Errorf("test_error"), "TestAnnotate", "hello", "world", "id", 0, "odd").Error(),
+		annotate(errors.New("test_error"), "TestAnnotate", "hello", "world", "id", 0, "odd").Error(),
 	)
 }
 
 func TestAnnotateNoKV(t *testing.T) {
 	assert.Equal(t,
 		"performing TestAnnotate: test_error",
-		annotate(fmt.Errorf("test_error"), "TestAnnotate").Error(),
+		annotate(errors.New("test_error"), "TestAnnotate").Error(),
 	)
 }
