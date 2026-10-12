@@ -284,7 +284,7 @@ func CountQuery(m DB, table string, query string, args ...any) (int, error) {
 	if err != nil {
 		return 0, annotate(err, "CountQuery", "table", table)
 	}
-	return count, nil
+	return int(count), nil
 }
 
 func Insert[T any](m DB, row *T) error {
@@ -441,15 +441,15 @@ func annotate(err error, op string, kvs ...any) error {
 	numPairs := len(kvs) / 2
 	for i := range numPairs {
 		builder.WriteByte(' ')
-		builder.WriteString(fmt.Sprint(kvs[i*2]))
+		fmt.Fprint(&builder, kvs[i*2])
 		builder.WriteString("='")
-		builder.WriteString(fmt.Sprint(kvs[i*2+1]))
+		fmt.Fprint(&builder, kvs[i*2+1])
 		builder.WriteByte('\'')
 	}
 
 	if len(kvs)%2 != 0 {
 		builder.WriteByte(' ')
-		builder.WriteString(fmt.Sprint(kvs[len(kvs)-1]))
+		fmt.Fprint(&builder, kvs[len(kvs)-1])
 		builder.WriteString("='<missing value>'")
 	}
 
@@ -467,8 +467,7 @@ func hyperbunTableForType[T any]() string {
 		kind = typ.Kind()
 	}
 
-	for i := range typ.NumField() {
-		f := typ.Field(i)
+	for f := range typ.Fields() {
 		val, ok := f.Tag.Lookup("bun")
 		if !ok {
 			continue

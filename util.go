@@ -25,8 +25,7 @@ func getColumns(typ reflect.Type) []string {
 
 	var columns []string
 
-	for i := range typ.NumField() {
-		f := typ.Field(i)
+	for f := range typ.Fields() {
 		unexported := f.PkgPath != ""
 
 		if unexported && !f.Anonymous { // unexported
@@ -72,7 +71,7 @@ func fieldName(f reflect.StructField) string {
 }
 
 func indirectType(t reflect.Type) reflect.Type {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	return t
